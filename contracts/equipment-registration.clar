@@ -1,30 +1,67 @@
+;; Equipment Registration Contract
+;; Records details of emergency response gear
 
-;; title: equipment-registration
-;; version:
-;; summary:
-;; description:
+(define-data-var last-id uint u0)
 
-;; traits
-;;
+;; Equipment data structure
+(define-map equipments
+  { id: uint }
+  {
+    name: (string-ascii 64),
+    type: (string-ascii 32),
+    serial: (string-ascii 64),
+    owner: principal,
+    status: (string-ascii 16)
+  }
+)
 
-;; token definitions
-;;
+;; Register new equipment
+(define-public (register
+    (name (string-ascii 64))
+    (type (string-ascii 32))
+    (serial (string-ascii 64)))
+  (let
+    ((new-id (+ (var-get last-id) u1)))
 
-;; constants
-;;
+    ;; Update last ID
+    (var-set last-id new-id)
 
-;; data vars
-;;
+    ;; Add equipment to the map
+    (map-set equipments
+      { id: new-id }
+      {
+        name: name,
+        type: type,
+        serial: serial,
+        owner: tx-sender,
+        status: "available"
+      }
+    )
 
-;; data maps
-;;
+    (ok new-id)
+  )
+)
 
-;; public functions
-;;
+;; Get equipment details
+(define-read-only (get-equipment (id uint))
+  (map-get? equipments { id: id })
+)
 
-;; read only functions
-;;
+;; Update equipment status
+(define-public (update-status (id uint) (new-status (string-ascii 16)))
+  (let
+    ((equipment (unwrap! (map-get? equipments { id: id }) (err u1))))
 
-;; private functions
-;;
+    ;; Check if caller is the owner
+    (asserts! (is-eq tx-sender (get owner equipment)) (err u2))
+
+    ;; Update equipment status
+    (map-set equipments
+      { id: id }
+      (merge equipment { status: new-status })
+    )
+
+    (ok true)
+  )
+)
 
