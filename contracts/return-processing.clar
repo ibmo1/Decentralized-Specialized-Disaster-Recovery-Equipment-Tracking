@@ -1,30 +1,70 @@
+;; Return Processing Contract
+;; Manages recovery of deployed resources
 
-;; title: return-processing
-;; version:
-;; summary:
-;; description:
+(define-data-var last-id uint u0)
 
-;; traits
-;;
+;; Return record data structure
+(define-map return-records
+  { id: uint }
+  {
+    deployment-id: uint,
+    equipment-id: uint,
+    returner: principal,
+    condition: (string-ascii 32),
+    location: (string-ascii 64),
+    status: (string-ascii 16)
+  }
+)
 
-;; token definitions
-;;
+;; Process equipment return
+(define-public (process
+    (deployment-id uint)
+    (equipment-id uint)
+    (condition (string-ascii 32))
+    (location (string-ascii 64)))
+  (let
+    ((new-id (+ (var-get last-id) u1)))
 
-;; constants
-;;
+    ;; Update last ID
+    (var-set last-id new-id)
 
-;; data vars
-;;
+    ;; Add return record to the map
+    (map-set return-records
+      { id: new-id }
+      {
+        deployment-id: deployment-id,
+        equipment-id: equipment-id,
+        returner: tx-sender,
+        condition: condition,
+        location: location,
+        status: "processed"
+      }
+    )
 
-;; data maps
-;;
+    (ok new-id)
+  )
+)
 
-;; public functions
-;;
+;; Get return record
+(define-read-only (get-record (id uint))
+  (map-get? return-records { id: id })
+)
 
-;; read only functions
-;;
+;; Update return status
+(define-public (update-status (id uint) (new-status (string-ascii 16)))
+  (let
+    ((record (unwrap! (map-get? return-records { id: id }) (err u1))))
 
-;; private functions
-;;
+    ;; Check if caller is the returner
+    (asserts! (is-eq tx-sender (get returner record)) (err u2))
+
+    ;; Update return status
+    (map-set return-records
+      { id: id }
+      (merge record { status: new-status })
+    )
+
+    (ok true)
+  )
+)
 
